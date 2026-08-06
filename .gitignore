@@ -22,3 +22,21 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# 환경변수
+.env
+.env.*
+!.env.example
+
+# Spring Boot 설정 (민감정보 포함 가능)
+application-local.yml
+application-secret.yml
+
+# AWS 자격증명
+.aws/
+*credentials*
+
+# IDE
+.idea/
+*.iml
+.vscode/
