@@ -40,3 +40,4 @@ application-secret.yml
 .idea/
 *.iml
 .vscode/
+.env
