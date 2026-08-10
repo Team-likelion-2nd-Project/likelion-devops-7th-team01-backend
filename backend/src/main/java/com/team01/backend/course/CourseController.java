@@ -54,6 +54,7 @@ public class CourseController {
             Map.entry("capacity", c.getCapacity()),
             Map.entry("remaining", c.getRemaining()),
             // status는 저장된 값이 아니라 remaining을 보고 그 자리에서 계산
+            Map.entry("credit", c.getCredit()),
             Map.entry("status", c.getRemaining() > 0 ? "OPEN" : "CLOSED"),
             Map.entry("dayOfWeek", c.getDayOfWeek()),
             Map.entry("startTime", c.getStartTime()),
