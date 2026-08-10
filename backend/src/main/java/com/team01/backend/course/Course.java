@@ -26,6 +26,7 @@ public class Course {
     private String department;   // 개설 학과
     private Integer capacity;    // 정원
     private Integer remaining;   // 잔여석
+    private Integer credit;      // 학점
     private String dayOfWeek;    // 요일 (MON, TUE 등)
     private String startTime;    // 시작 시간 ("09:00" 형태)
     private String endTime;      // 종료 시간
@@ -41,6 +42,7 @@ public class Course {
     public String getDepartment() { return department; }
     public Integer getCapacity() { return capacity; }
     public Integer getRemaining() { return remaining; }
+    public Integer getCredit() { return credit; } 
     public String getDayOfWeek() { return dayOfWeek; }
     public String getStartTime() { return startTime; }
     public String getEndTime() { return endTime; }
