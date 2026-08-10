@@ -46,7 +46,7 @@ docker compose ps
 |---|---|
 | `backend` | Course/Enrollment 통합 API 서버 (포트 8080) |
 | `backend-mysql` | 데이터베이스 |
-| `backend-redis` | 캐시/향후 보조 동시성 제어용 (현재는 연결만 준비된 상태) |
+| `backend-redis` | 정원 확정 결과의 보조 캐시 (DB 락 확정 후 동기화, 장애 시에도 신청 로직에는 영향 없음) |
 
 로그 확인:
 
@@ -90,6 +90,7 @@ curl localhost:8080/api/courses/1
   "name": "자료구조",
   "professor": "김민준",
   "department": "컴퓨터공학과",
+  "credit": 3,
   "capacity": 30,
   "remaining": 5,
   "status": "OPEN",
