@@ -204,6 +204,7 @@ docker compose down -v   # 컨테이너 + 데이터(볼륨)까지 완전히 삭�
     └── src/main/java/com/team01/backend/
         ├── BackendApplication.java
         ├── HealthController.java
+        ├── RedisConfig.java               # RedisTemplate 빈 등록 (문자열 직렬화 설정)
         ├── course/
         │   ├── Course.java
         │   ├── CourseRepository.java     # findByIdForUpdate — 트랜잭션 락 조회
@@ -211,7 +212,7 @@ docker compose down -v   # 컨테이너 + 데이터(볼륨)까지 완전히 삭�
         └── enrollment/
             ├── Enrollment.java
             ├── EnrollmentRepository.java
-            ├── EnrollmentService.java    # 신청/취소 핵심 로직 (DB 트랜잭션 락 + 시간 중복 체크)
+            ├── EnrollmentService.java    # 신청/취소 핵심 로직 (DB 트랜잭션 락 + 시간 중복 체크 + Redis 캐시 동기화)
             ├── EnrollmentController.java # POST /api/enrollments, DELETE /api/enrollments/{id}
             ├── ApiException.java
             └── GlobalExceptionHandler.java
