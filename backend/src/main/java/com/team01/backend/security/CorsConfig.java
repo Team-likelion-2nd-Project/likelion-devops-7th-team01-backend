@@ -1,0 +1,40 @@
+package com.team01.backend.security;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+/**
+ * CORS 설정.
+ *
+ * Spring Security가 활성화되면 기존 CORS 설정이 무시될 수 있어서
+ * Security 레벨에서 별도로 등록한다.
+ *
+ * 운영 배포 시 allowedOrigins를 실제 프론트 도메인으로 변경할 것.
+ */
+@Configuration
+public class CorsConfig {
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        // 로컬 개발: 프론트 Vite 개발 서버
+        config.setAllowedOrigins(List.of(
+            "http://localhost:5173",
+            "http://localhost:3000"
+        ));
+
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+}
