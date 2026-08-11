@@ -2,11 +2,9 @@
 //
 // 이 파일의 역할: 수강신청/취소의 핵심 비즈니스 로직.
 // 동시성 제어의 근원은 여전히 DB 트랜잭션 락(SELECT ... FOR UPDATE)임 — 이건 안 바뀜.
-// M4-2(이번 작업)로 추가된 것: DB 처리가 끝난 뒤 Redis에 잔여석 값을
-// "보조 캐시"로 반영함. Redis는 판단에 절대 관여하지 않고, 단지 DB가
-// 이미 확정한 결과를 따라가서 저장만 함 — 그래서 Redis가 죽어도
-// 신청/취소 로직 자체는 전혀 영향받지 않음 (완료 조건: Redis 장애 시에도
-// DB 락만으로 정원 초과가 방지되어야 함).
+// M4-2로 추가된 것: DB 처리가 끝난 뒤 Redis에 잔여석 값을 "보조 캐시"로 반영함.
+// 이번에 추가된 것: getMyEnrollments() — 이 학생이 신청한 강의 목록을 반환.
+// (GET /api/enrollments/me 에서 사용, 강의 상세정보 합치는 건 Controller가 담당)
 
 package com.team01.backend.enrollment;
 
@@ -103,6 +101,14 @@ public class EnrollmentService {
         syncRemainingToRedis(courseId, lockedCourse.getRemaining());
 
         return courseId;
+    }
+
+    // 새로 추가 — 이 학생이 신청한 강의 목록을 그대로 반환.
+    // 락이 필요 없는 단순 조회임 (조회만 하는 거라 다른 트랜잭션과 경쟁할 일이 없음).
+    // 강의 상세정보(이름, 시간 등)를 합치는 건 Controller에서 처리 —
+    // Service는 "신청 기록이 뭔지"만 알고, "그 강의가 어떻게 생겼는지"는 Controller가 조합하게 역할을 나눔.
+    public List<Enrollment> getMyEnrollments(String studentId) {
+        return enrollmentRepository.findByStudentId(studentId);
     }
 
     // M4-2로 새로 추가된 메서드.
