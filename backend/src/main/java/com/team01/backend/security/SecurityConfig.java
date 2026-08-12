@@ -12,7 +12,7 @@ import org.springframework.security.web.SecurityFilterChain;
 /**
  * Spring Security 설정.
  *
- * - /health, GET /api/courses → 인증 없이 접근 가능
+ * - /health/**, GET /api/courses → 인증 없이 접근 가능
  * - POST/DELETE /api/enrollments, GET /api/timetable → JWT 필수
  * - Cognito가 발급한 JWT를 자동으로 검증 (application.yml의 jwk-set-uri 사용)
  */
@@ -34,7 +34,7 @@ public class SecurityConfig {
             // URL별 인증 규칙
             .authorizeHttpRequests(auth -> auth
                 // 헬스체크: 인프라 readinessProbe용, 인증 불필요
-                .requestMatchers("/health").permitAll()
+                .requestMatchers("/health/**").permitAll()
 
                 // 강의 목록 조회: 로그인 안 해도 볼 수 있음
                 .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
