@@ -52,11 +52,10 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
 
-      - name: Deploy to EKS
+      - name: Deploy to EKS (Kustomize)
         run: |
           IMAGE_TAG=${{ github.sha }}
-          kubectl apply -f infra-repo/k8s/backend/service.yaml
-          kubectl set image deployment/backend backend=${{ env.ECR_REPO }}:$IMAGE_TAG --record || \
-          (kubectl apply -f infra-repo/k8s/backend/deployment.yaml && \
-           kubectl set image deployment/backend backend=${{ env.ECR_REPO }}:$IMAGE_TAG)
+          cd infra-repo/k8s/overlays/dev
+          kubectl kustomize edit set image ${{ env.ECR_REPO }}=${{ env.ECR_REPO }}:$IMAGE_TAG
+          kubectl apply -k .
           kubectl rollout status deployment/backend --timeout=120s
