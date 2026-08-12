@@ -1,0 +1,62 @@
+name: Deploy Backend to EKS
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      ECR_REPO: 834922934330.dkr.ecr.ap-northeast-3.amazonaws.com/team01-course-registration-backend
+      EKS_CLUSTER: team01-course-registration-eks
+      AWS_REGION: ap-northeast-3
+
+    steps:
+      - name: Checkout backend repo
+        uses: actions/checkout@v4
+        with:
+          path: backend-repo
+
+      - name: Checkout infra repo (for k8s manifests)
+        uses: actions/checkout@v4
+        with:
+          repository: Team-likelion-2nd-Project/likelion-devops-7th-team01-infra
+          path: infra-repo
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::834922934330:role/team01-backend-cicd-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin ${{ env.ECR_REPO }}
+
+      - name: Build and Push Docker image
+        working-directory: backend-repo/backend
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t ${{ env.ECR_REPO }}:$IMAGE_TAG .
+          docker push ${{ env.ECR_REPO }}:$IMAGE_TAG
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Deploy to EKS
+        run: |
+          IMAGE_TAG=${{ github.sha }}
+          kubectl apply -f infra-repo/k8s/backend/service.yaml
+          kubectl set image deployment/backend backend=${{ env.ECR_REPO }}:$IMAGE_TAG --record || \
+          (kubectl apply -f infra-repo/k8s/backend/deployment.yaml && \
+           kubectl set image deployment/backend backend=${{ env.ECR_REPO }}:$IMAGE_TAG)
+          kubectl rollout status deployment/backend --timeout=120s
