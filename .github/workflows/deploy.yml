@@ -54,8 +54,9 @@ jobs:
 
       - name: Deploy to EKS (Kustomize)
         run: |
+          set -e
           IMAGE_TAG=${{ github.sha }}
           cd infra-repo/k8s/overlays/dev
-          kubectl kustomize edit set image ${{ env.ECR_REPO }}=${{ env.ECR_REPO }}:$IMAGE_TAG
+          sed -i "s|newTag: .*|newTag: $IMAGE_TAG|" kustomization.yaml
           kubectl apply -k .
           kubectl rollout status deployment/backend --timeout=120s
