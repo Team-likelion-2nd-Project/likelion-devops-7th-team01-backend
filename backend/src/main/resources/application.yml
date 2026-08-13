@@ -9,7 +9,7 @@ server:
 
 spring:
   datasource:
-    url: url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:backend} # RDS 실제 DB명(course_registration)과 다름 → 환경변수로 주입
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:backend} # RDS 실제 DB명(course_registration)과 다름 → 환경변수로 주입
     username: ${DB_USER:backend}
     password: ${DB_PASSWORD}
   jpa:
