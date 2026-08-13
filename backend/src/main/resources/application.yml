@@ -12,6 +12,14 @@ spring:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:backend} # RDS 실제 DB명(course_registration)과 다름 → 환경변수로 주입
     username: ${DB_USER:backend}
     password: ${DB_PASSWORD}
+    hikari:
+      # M3-4 — db.t4g.micro 스펙 고려한 보수적 설정.
+      # 근거는 docs/hikaricp-connection-pool.md 참고.
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 3000
+      max-lifetime: 600000
+      idle-timeout: 300000
   jpa:
     hibernate:
       ddl-auto: validate   # Flyway가 스키마 관리, Hibernate는 검증만
