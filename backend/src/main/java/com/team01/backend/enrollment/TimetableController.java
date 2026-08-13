@@ -1,8 +1,8 @@
+// TimetableController.java — 임시 버전
 package com.team01.backend.enrollment;
 
 import com.team01.backend.course.Course;
 import com.team01.backend.course.CourseRepository;
-import com.team01.backend.security.JwtUtil;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,7 +22,7 @@ public class TimetableController {
 
     @GetMapping("/api/timetable")
     public Map<String, Object> getTimetable() {
-        String studentId = JwtUtil.getUserId();
+        String studentId = "temp-student";
 
         List<Enrollment> enrollments = service.getMyEnrollments(studentId);
 
