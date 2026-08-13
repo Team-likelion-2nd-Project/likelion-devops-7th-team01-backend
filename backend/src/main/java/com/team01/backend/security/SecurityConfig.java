@@ -1,4 +1,3 @@
-// SecurityConfig.java — 임시 버전 (로컬 동시성 테스트용, 완료 후 반드시 git checkout으로 원복)
 package com.team01.backend.security;
 
 import org.springframework.context.annotation.Bean;
@@ -10,6 +9,13 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Spring Security 설정.
+ *
+ * - /health/**, GET /api/courses → 인증 없이 접근 가능
+ * - POST/DELETE /api/enrollments, GET /api/timetable → JWT 필수
+ * - Cognito가 발급한 JWT를 자동으로 검증 (application.yml의 jwk-set-uri 사용)
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -24,7 +30,6 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/health/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
-                .requestMatchers("/api/enrollments", "/api/enrollments/**", "/api/timetable").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 ->
