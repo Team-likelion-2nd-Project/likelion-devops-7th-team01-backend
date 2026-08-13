@@ -2,6 +2,7 @@ package com.team01.backend.enrollment;
 
 import com.team01.backend.course.Course;
 import com.team01.backend.course.CourseRepository;
+import com.team01.backend.security.JwtUtil;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,8 +22,7 @@ public class TimetableController {
 
     @GetMapping("/api/timetable")
     public Map<String, Object> getTimetable() {
-        // TODO: JWT 연동되면 studentId를 토큰에서 추출하도록 교체
-        String studentId = "temp-student";
+        String studentId = JwtUtil.getUserId();
 
         List<Enrollment> enrollments = service.getMyEnrollments(studentId);
 
