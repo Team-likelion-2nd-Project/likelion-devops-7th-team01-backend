@@ -1,6 +1,6 @@
-# 수강신청 시스템 — Backend (Course / Enrollment 통합)
+# 수강신청 시스템 — Backend (Course / Enrollment / Timetable)
 
-수강신청 프로젝트의 백엔드 서비스입니다. Course(강의 조회)와 Enrollment(수강신청/취소)가 단일 Spring Boot 프로젝트로 통합되어 있으며, Docker Compose로 MySQL, Redis까지 포함해 한 번에 실행할 수 있습니다.
+수강신청 프로젝트의 백엔드 서비스입니다. Course(강의 조회), Enrollment(수강신청/취소), Timetable(내 시간표 조회)이 단일 Spring Boot 프로젝트로 통합되어 있으며, Docker Compose로 MySQL, Redis까지 포함해 한 번에 실행할 수 있습니다.
 
 ## 사전 준비물
 
@@ -17,9 +17,10 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-- `--build`는 **최초 실행 시 반드시 필요**합니다 (이미지가 아직 없으므로). 이후 코드 변경 없이 재시작만 할 때는 `docker compose up -d`만으로 충분합니다.
+- `--build`는 **최초 실행 시 반드시 필요**합니다. 이후 코드 변경 없이 재시작만 할 때는 `docker compose up -d`만으로 충분합니다.
 - `.env` 파일은 `.env.example`을 복사해서 만듭니다. 기본값 그대로 사용해도 로컬 실행에는 문제없습니다.
 - 처음 실행 시 이미지 빌드에 1~3분 정도 걸릴 수 있습니다.
+- MySQL이 `healthy` 상태로 뜬 직후 `backend`가 연결에 실패하며 한 번 종료되는 경우가 있습니다. 이 경우 `docker compose up -d`로 `backend`만 다시 띄우면 정상 기동합니다.
 
 ## 환경변수 (.env)
 
@@ -32,7 +33,9 @@ docker compose up --build -d
 | `DB_HOST_PORT` | 3309 | 호스트에서 MySQL에 접속할 포트 (로컬에 이미 MySQL이 설치되어 3306이 사용 중인 경우가 많아 기본값을 3309로 설정) |
 | `REDIS_PORT` | 6379 | 호스트에서 Redis에 접속할 포트 |
 
-`.env`는 `.gitignore`에 포함되어 있으므로 커밋되지 않습니다. 실제 값이 바뀌면 각자 로컬의 `.env`만 수정하면 됩니다.
+`.env`는 `.gitignore`에 포함되어 있으므로 커밋되지 않습니다.
+
+Cognito 관련 설정(`jwk-set-uri`, `issuer-uri`)은 `application.yml`에 직접 값이 들어 있으며, 아직 환경변수로 분리되어 있지 않습니다.
 
 ## 실행 확인
 
@@ -44,9 +47,9 @@ docker compose ps
 
 | 서비스명 | 역할 |
 |---|---|
-| `backend` | Course/Enrollment 통합 API 서버 (포트 8080) |
+| `backend` | Course/Enrollment/Timetable 통합 API 서버 (포트 8080) |
 | `backend-mysql` | 데이터베이스 |
-| `backend-redis` | 정원 확정 결과의 보조 캐시 (DB 락 확정 후 동기화, 장애 시에도 신청 로직에는 영향 없음) |
+| `backend-redis` | 정원 확정 결과의 보조 캐시 |
 
 로그 확인:
 
@@ -54,58 +57,70 @@ docker compose ps
 docker compose logs -f backend
 ```
 
-## 스키마 및 초기 데이터 — Flyway로 관리
+## 인증 (Cognito JWT)
 
-MySQL 컨테이너에 SQL 파일을 마운트하는 대신, 애플리케이션이 시작될 때 **Flyway**가 스키마 생성과 초기 데이터 삽입을 자동으로 처리합니다.
+이 서비스는 AWS Cognito가 발급한 JWT를 사용합니다. `POST/DELETE /api/enrollments`, `GET /api/timetable` 등 대부분의 API는 요청 헤더에 유효한 토큰이 있어야 합니다.
+
+```
+Authorization: Bearer <idToken>
+```
+
+토큰이 없거나 유효하지 않으면 `401 Unauthorized`가 반환됩니다. 서버는 토큰 자체를 발급하지 않으며, Cognito가 발급한 서명을 JWKS 엔드포인트로 검증만 합니다.
+
+인증 없이 접근 가능한 엔드포인트:
+
+- `GET /health/live`, `GET /health/ready`
+- `GET /api/courses`, `GET /api/courses/{id}`
+
+인증된 요청에서 학생 식별자는 클라이언트가 보내는 값이 아니라, 토큰 안의 `sub` claim(`JwtUtil.getUserId()`)에서 서버가 직접 꺼내 사용합니다. 요청 body로 `studentId`를 받던 방식은 보안상 제거되었습니다.
+
+## 스키마 및 초기 데이터 — Flyway로 관리
 
 ```
 src/main/resources/db/migration/
-├── V1__create_course_table.sql       # course 테이블 생성
-├── V2__insert_sample_courses.sql     # 샘플 강의 15개 삽입
-└── V3__create_enrollment_table.sql   # enrollment 테이블 생성
+├── V1__create_course_table.sql
+├── V2__insert_sample_courses.sql
+├── V3__create_enrollment_table.sql
+├── V4__add_credit_to_course.sql
+└── V5__update_course_credits.sql
 ```
 
-- `docker compose up`으로 컨테이너를 처음 띄우면 이 마이그레이션이 자동으로 적용되어, 별도 조치 없이 스키마와 샘플 데이터가 모두 갖춰진 상태로 시작합니다.
-- 이미 적용된 마이그레이션 파일(`V1`, `V2`, `V3`)은 **절대 수정하지 마세요.** 스키마를 변경해야 하면 `V4__...` 형태로 새 파일을 추가합니다.
+- `docker compose up`으로 컨테이너를 처음 띄우면 이 마이그레이션이 자동으로 적용됩니다.
+- 이미 적용된 마이그레이션 파일은 **절대 수정하지 마세요.** 스키마를 변경해야 하면 `V6__...` 형태로 새 파일을 추가합니다.
 - 적용 이력은 DB의 `flyway_schema_history` 테이블에서 확인할 수 있습니다.
+
+## 커넥션 풀 (HikariCP)
+
+RDS(`db.t4g.micro`)의 낮은 최대 연결 수를 고려해 파드 하나당 DB 연결을 보수적으로 제한합니다.
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 3000
+      max-lifetime: 600000
+      idle-timeout: 300000
+```
+
+설정 근거와 동시성 재검증 결과는 `docs/hikaricp-connection-pool.md`를 참고하세요. 연결 수를 5개로 줄인 상태에서도 정원 초과 방지 정합성이 깨지지 않는 것을 실측으로 확인했습니다.
 
 ## API 사용법
 
-### Course — 강의 조회
+### Course — 강의 조회 (인증 불필요)
 
 ```bash
-# 전체 목록
 curl localhost:8080/api/courses
-
-# 단건 조회
 curl localhost:8080/api/courses/1
 ```
 
-응답 예시:
-
-```json
-{
-  "id": 1,
-  "courseCode": "CSE201",
-  "name": "자료구조",
-  "professor": "김민준",
-  "department": "컴퓨터공학과",
-  "credit": 3,
-  "capacity": 30,
-  "remaining": 5,
-  "status": "OPEN",
-  "dayOfWeek": "MON",
-  "startTime": "09:00",
-  "endTime": "10:30"
-}
-```
-
-### Enrollment — 수강신청 / 취소
+### Enrollment — 수강신청 / 취소 (인증 필요)
 
 ```bash
-# 수강신청
 curl -X POST localhost:8080/api/enrollments \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <idToken>" \
   -d '{"courseId": 1}'
 ```
 
@@ -115,7 +130,7 @@ curl -X POST localhost:8080/api/enrollments \
 { "enrollmentId": 1, "courseId": 1, "status": "SUCCESS" }
 ```
 
-실패 응답 형식은 아래와 같이 통일되어 있습니다.
+실패 응답 형식:
 
 ```json
 { "error": "사용자에게 보여줄 메시지", "code": "ERROR_CODE" }
@@ -129,51 +144,67 @@ curl -X POST localhost:8080/api/enrollments \
 | `NOT_FOUND` | 404 | 존재하지 않는 신청 내역 |
 
 ```bash
-# 수강신청 취소 (위에서 받은 enrollmentId 사용)
-curl -X DELETE localhost:8080/api/enrollments/1
+curl -X DELETE localhost:8080/api/enrollments/1 \
+  -H "Authorization: Bearer <idToken>"
 ```
 
-취소 성공 응답:
+### Timetable — 내 시간표 조회 (인증 필요)
+
+```bash
+curl localhost:8080/api/timetable -H "Authorization: Bearer <idToken>"
+```
+
+신청한 강의 목록을 요일·시간순으로 정렬하고, 총 학점까지 계산해서 한 번에 반환합니다.
 
 ```json
-{ "courseId": 1, "status": "CANCELLED" }
+{
+  "totalCredit": 6,
+  "courses": [
+    { "enrollmentId": 1, "courseId": 1, "courseCode": "CSE201", "name": "자료구조", "professor": "김민준", "department": "컴퓨터공학과", "credit": 3, "dayOfWeek": "MON", "startTime": "09:00", "endTime": "10:30" }
+  ]
+}
 ```
 
-전체 명세는 Wiki > API Specification을 참고하세요.
+전체 명세는 Wiki의 API Specification 문서(Course/Enrollment, Timetable 각각)를 참고하세요.
 
 ### 헬스체크
 
 ```bash
-curl localhost:8080/health
+curl localhost:8080/health/live    # 프로세스 생존 여부만 확인
+curl localhost:8080/health/ready   # DB 연결까지 확인, 실패 시 503
 ```
+
+`/health/live`는 쿠버네티스 liveness probe, `/health/ready`는 readiness probe에 대응합니다.
 
 ## 동작 원리 — 알아두면 좋은 것
 
-- **정원 초과 방지**: `SELECT ... FOR UPDATE`로 강의 row에 DB 트랜잭션 락을 걸고 정원을 확인합니다. 동시에 여러 요청이 몰려도 정원을 초과해 신청이 성공하지 않습니다. (20명 동시 요청 → 정원 10명 기준 정확히 10명만 성공하는 것을 실측 검증함)
+- **정원 초과 방지**: `SELECT ... FOR UPDATE`로 강의 row에 DB 트랜잭션 락을 걸고 정원을 확인합니다. 정원 10명 기준 20명 동시 요청 → 정확히 10명 성공, 정원 1명 기준 200명 동시 요청 → 정확히 1명 성공하는 것을 실측 검증했습니다.
 - **같은 시간대 중복신청 방지**: 신청 처리 시 같은 학생의 기존 신청 강의들과 시간이 겹치는지 확인합니다.
-- **서비스 간 통신 없음**: Course와 Enrollment가 하나의 프로젝트로 통합되어 있어, 강의 정보 조회는 HTTP 호출이 아닌 `CourseRepository` 직접 조회로 처리됩니다.
-- **Redis (보조 캐시)**: DB 트랜잭션 락으로 정원이 확정된 직후, 그 결과를 Redis에 캐시로 동기화합니다. Redis는 판단에 관여하지 않으며, 실패해도 신청/취소 로직에는 영향을 주지 않도록 예외 처리되어 있습니다(Redis 장애 상태에서도 DB 락만으로 정원 초과 방지가 되는 것을 실측 검증함). 배포 환경(EKS)에서는 로컬 Redis 컨테이너 대신 AWS ElastiCache로 교체될 예정이며, `REDIS_HOST`/`REDIS_PORT` 환경변수만 바뀌고 코드 변경은 없습니다.
+- **Redis (보조 캐시)**: DB 트랜잭션 락으로 정원이 확정된 직후, 그 결과를 Redis에 캐시로 동기화합니다. Redis 장애 시에도 신청/취소 로직에는 영향을 주지 않습니다. 배포 환경(EKS)에서는 로컬 Redis 컨테이너 대신 AWS ElastiCache로 교체되며, 환경변수만 바뀌고 코드 변경은 없습니다.
+- **CPU 사용 특성**: 신청 처리는 대부분 DB 응답 대기 시간이라 소규모 동시 요청으로는 CPU 사용률이 잘 오르지 않습니다(20명 기준 0.5% 내외). 200명 수준에서는 뚜렷하게 상승하는 것을 확인했습니다 — HPA를 CPU 기준으로 튜닝할 때 참고가 필요합니다.
+
+## CI/CD
+
+`develop` 브랜치에 push되면 GitHub Actions가 자동으로 이미지를 빌드해 ECR에 push하고, Kustomize(`apply -k`)로 EKS에 배포합니다. 워크플로우 정의는 `.github/workflows/deploy.yml`을 참고하세요.
 
 ## 자주 겪는 문제
 
 **포트 충돌 (`port is already allocated`)**
 
-로컬에 이미 설치된 MySQL(예: Homebrew로 설치)이 기본 포트(3306)를 사용 중인 경우가 흔합니다. 아래로 확인합니다.
-
 ```bash
 sudo lsof -nP -iTCP:3306 -sTCP:LISTEN
 ```
 
-`mysqld`가 나오면 로컬 MySQL 서비스가 원인입니다. 끄거나(`brew services stop mysql` 및 필요시 `sudo kill -9 <PID>`), `.env`의 `DB_HOST_PORT` 값을 다른 포트로 바꿔서 우회할 수 있습니다(기본값이 이미 3309로 설정되어 있어 대부분 이 문제를 피할 수 있습니다).
+`mysqld`가 나오면 로컬 MySQL 서비스가 원인입니다. 끄거나(`brew services stop mysql`), `.env`의 `DB_HOST_PORT` 값을 다른 포트로 바꿔서 우회할 수 있습니다.
 
 **서비스가 시작 직후 종료됨 (`Exited`)**
 
 ```bash
 docker compose ps -a
-docker compose logs <서비스명>
+docker compose logs backend
 ```
 
-네트워크 상태가 꼬인 경우 완전히 초기화 후 재시도합니다.
+MySQL 초기화 타이밍 문제인 경우가 많습니다. `docker compose up -d`로 `backend`만 다시 띄우면 해결되는 경우가 대부분입니다. 계속 반복되면:
 
 ```bash
 docker compose down
@@ -185,6 +216,17 @@ docker compose up --build -d
 ```bash
 docker compose up --build -d
 ```
+
+그래도 반영이 안 되면 캐시 문제일 수 있습니다.
+
+```bash
+docker compose build --no-cache backend
+docker compose up -d
+```
+
+**인증이 걸린 API를 토큰 없이 테스트하고 싶을 때**
+
+`SecurityConfig`의 `requestMatchers`에 해당 경로를 임시로 `permitAll()` 추가하고, 관련 컨트롤러의 `JwtUtil.getUserId()`를 임시 고정값으로 바꿔서 테스트할 수 있습니다. **테스트 후 반드시 `git checkout --`으로 원상복구하고, 원복 여부를 `curl`로 401이 다시 나오는지 확인한 뒤 커밋하세요.**
 
 ## 종료 / 초기화
 
@@ -199,22 +241,29 @@ docker compose down -v   # 컨테이너 + 데이터(볼륨)까지 완전히 삭�
 .
 ├── .env.example
 ├── docker-compose.yml
+├── docs/
+│   └── hikaricp-connection-pool.md   # 커넥션 풀 설정 근거 및 검증 결과
 └── backend/
     ├── Dockerfile
     ├── build.gradle
     └── src/main/java/com/team01/backend/
         ├── BackendApplication.java
-        ├── HealthController.java
-        ├── RedisConfig.java               # RedisTemplate 빈 등록 (문자열 직렬화 설정)
+        ├── HealthController.java          # /health/live, /health/ready
+        ├── RedisConfig.java
         ├── course/
         │   ├── Course.java
-        │   ├── CourseRepository.java     # findByIdForUpdate — 트랜잭션 락 조회
-        │   └── CourseController.java     # GET /api/courses, GET /api/courses/{id}
-        └── enrollment/
-            ├── Enrollment.java
-            ├── EnrollmentRepository.java
-            ├── EnrollmentService.java    # 신청/취소 핵심 로직 (DB 트랜잭션 락 + 시간 중복 체크 + Redis 캐시 동기화)
-            ├── EnrollmentController.java # POST /api/enrollments, DELETE /api/enrollments/{id}
-            ├── ApiException.java
-            └── GlobalExceptionHandler.java
+        │   ├── CourseRepository.java      # findByIdForUpdate — 트랜잭션 락 조회
+        │   └── CourseController.java      # GET /api/courses, GET /api/courses/{id}
+        ├── enrollment/
+        │   ├── Enrollment.java
+        │   ├── EnrollmentRepository.java
+        │   ├── EnrollmentService.java     # 신청/취소 핵심 로직
+        │   ├── EnrollmentController.java  # POST /api/enrollments, DELETE /api/enrollments/{id}
+        │   ├── TimetableController.java   # GET /api/timetable
+        │   ├── ApiException.java
+        │   └── GlobalExceptionHandler.java
+        └── security/
+            ├── SecurityConfig.java        # 인증 규칙, JWT 검증 활성화
+            ├── CorsConfig.java            # CORS 설정 (Security 레벨에서 등록)
+            └── JwtUtil.java               # JWT에서 사용자 ID/이메일 추출
 ```
