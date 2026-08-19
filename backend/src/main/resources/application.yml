@@ -21,7 +21,8 @@ spring:
       # M3-4 — db.t4g.micro 스펙 고려한 설정.
       # 근거는 docs/hikaricp-connection-pool.md 참고.
       # (2026-08-19 업데이트: k6 300명 부하테스트 중 커넥션 풀 고갈 확인,
-      #  RDS max_connections=60 기준으로 재조정. 파드 최대 3개 x 15 = 45, 75% 이내)
+      #  RDS max_connections=60 기준으로 재조정. 파드 min=3/max=5 x 15 = 최대 75)
+      #  이론상 RDS 한도(60) 초과 가능하나, 실측(300명 부하)에서 RDS Connections 최대 58/60 확인 — 현재 조건 안전범위 내
       maximum-pool-size: 15
       minimum-idle: 15         # 부하 몰릴 때 새로 연결 만드는 지연 없도록 미리 다 켜둠
       connection-timeout: 15000
