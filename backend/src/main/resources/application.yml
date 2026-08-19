@@ -6,6 +6,11 @@
 
 server:
   port: 8080
+  tomcat:
+    threads:
+      max: 300
+      min-spare: 30
+    accept-count: 200        # 스레드가 다 찼을 때 대기열 크기 (부하 몰릴 때 완충 역할)
 
 spring:
   datasource:
@@ -13,14 +18,17 @@ spring:
     username: ${DB_USER:backend}
     password: ${DB_PASSWORD}
     hikari:
-      # M3-4 — db.t4g.micro 스펙 고려한 보수적 설정.
+      # M3-4 — db.t4g.micro 스펙 고려한 설정.
       # 근거는 docs/hikaricp-connection-pool.md 참고.
+      # (2026-08-19 업데이트: k6 300명 부하테스트 중 커넥션 풀 고갈 확인,
+      #  RDS max_connections=60 기준으로 재조정. 파드 최대 3개 x 15 = 45, 75% 이내)
       maximum-pool-size: 15
-      minimum-idle: 2
-      connection-timeout: 3000
+      minimum-idle: 15         # 부하 몰릴 때 새로 연결 만드는 지연 없도록 미리 다 켜둠
+      connection-timeout: 15000
       max-lifetime: 600000
       idle-timeout: 300000
   jpa:
+    open-in-view: false        # DB 커넥션을 요청 처리 끝까지 불필요하게 붙잡지 않도록
     hibernate:
       ddl-auto: validate   # Flyway가 스키마 관리, Hibernate는 검증만
   flyway:
@@ -29,6 +37,11 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
   security:
     oauth2:
       resourceserver:
