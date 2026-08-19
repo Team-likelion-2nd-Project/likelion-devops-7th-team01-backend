@@ -29,6 +29,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/health/**").permitAll()
+                .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
                 .anyRequest().authenticated()
             )
