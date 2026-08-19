@@ -14,7 +14,7 @@ import java.util.List;
  * Spring Security가 활성화되면 기존 CORS 설정이 무시될 수 있어서
  * Security 레벨에서 별도로 등록한다.
  *
- * 운영 배포 시 allowedOrigins를 실제 프론트 도메인으로 변경할 것.
+ * allowedOrigins에 프로덕션 CloudFront 도메인 반영 완료 (2026-08-19).
  */
 @Configuration
 public class CorsConfig {
