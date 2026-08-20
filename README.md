@@ -97,14 +97,14 @@ RDS(`db.t4g.micro`)의 낮은 최대 연결 수를 고려해 파드 하나당 DB
 spring:
   datasource:
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 2
-      connection-timeout: 3000
+      maximum-pool-size: 15
+      minimum-idle: 15
+      connection-timeout: 15000
       max-lifetime: 600000
       idle-timeout: 300000
 ```
 
-설정 근거와 동시성 재검증 결과는 `docs/hikaricp-connection-pool.md`를 참고하세요. 연결 수를 5개로 줄인 상태에서도 정원 초과 방지 정합성이 깨지지 않는 것을 실측으로 확인했습니다.
+초기 설정값(5/2/3000ms)은 300명 부하테스트 중 커넥션 풀 고갈로 확인되어, RDS max_connections=60 기준으로 재조정했습니다. 설정 근거와 재검증 결과는 docs/hikaricp-connection-pool.md와 Wiki의 System Architecture 문서를 참고하세요.
 
 ## API 사용법
 
@@ -266,7 +266,4 @@ docker compose down -v   # 컨테이너 + 데이터(볼륨)까지 완전히 삭�
             ├── SecurityConfig.java        # 인증 규칙, JWT 검증 활성화
             ├── CorsConfig.java            # CORS 설정 (Security 레벨에서 등록)
             └── JwtUtil.java               # JWT에서 사용자 ID/이메일 추출
-```
 
-<- CloudFront: /api/* ALB origin 추가로 Mixed Content 문제 CI/CD 시연용 커밋 (8/20) -->
-<- CloudFront: /api/* ALB origin 추가로 Mixed Content 문제 CI/CD 시연 -->
