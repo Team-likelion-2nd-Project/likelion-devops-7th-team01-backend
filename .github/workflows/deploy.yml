@@ -59,4 +59,4 @@ jobs:
           cd infra-repo/k8s/overlays/dev
           sed -i "s|newTag: .*|newTag: $IMAGE_TAG|" kustomization.yaml
           kubectl apply -k .
-          kubectl rollout status deployment/backend --timeout=120s
+          kubectl rollout status deployment/backend --timeout=300s
