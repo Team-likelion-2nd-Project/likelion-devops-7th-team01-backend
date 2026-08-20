@@ -269,3 +269,4 @@ docker compose down -v   # 컨테이너 + 데이터(볼륨)까지 완전히 삭�
 ```
 
 <- CloudFront: /api/* ALB origin 추가로 Mixed Content 문제 CI/CD 시연용 커밋 (8/20) -->
+<- CloudFront: /api/* ALB origin 추가로 Mixed Content 문제 CI/CD 시연 -->
